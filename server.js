@@ -54,8 +54,11 @@ app.get('/callback',function(req,res){
     req.body = form;
     sendReq(conf.host+"/oauth/token",'POST',req,function(err,token){
       if(err) res.json(err);
-      cookie.save('token',token,{path:'/',maxAge:1800});
-      res.render('callback',{token:token,accessToken:token.access_token,refreshToken:token.refresh_token,layout:false});
+      else {
+        console.log(token);
+        cookie.save('token',token,{path:'/',maxAge:1800});
+        res.render('callback',{accessToken:token.access_token,refreshToken:token.refresh_token,layout:false});
+      }
     });
 
   }

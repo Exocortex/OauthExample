@@ -4,6 +4,7 @@ The demo provides Oauth2.0 authorization by authorization code flow
 
 
 ##Authorization code flow
+ - Change client information in conf.js
  - Start at http://localhost:8080
  - Redirect user to clara.io /oauth/login 
  - Verify user credential
