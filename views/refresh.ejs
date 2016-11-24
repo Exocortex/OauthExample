@@ -1,0 +1,24 @@
+
+<!doctype html>
+<html>
+<head>
+	<title>Refresh Token</title>
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css"> <!-- load bootstrap css -->
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css"> <!-- load fontawesome -->
+	<style>
+		body 		{ padding-top:70px; }
+	</style>
+</head>
+<body>
+<div class="container">
+
+	<div class="jumbotron text-center">
+		<h4>Refresh token is used to get new acess token when access token expires</h4>
+		<p> access token has one day lifetime, refresh token has two-week liftime in clara.io  </p>
+		<form method="post" action="/refresh">
+			<input type='submit' class= 'btn btn-default' value='get new token'>
+		</form>
+	</div>
+</div>
+</body>
+</html>

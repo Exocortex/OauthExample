@@ -38,8 +38,7 @@ app.get('/',function(req,res){
 app.get('/callback',function(req,res){
   var token = cookie.load('token');
   if(typeof token !== 'undefined'){
-    res.render('callback',{token:token,layout:false});
-    return;
+    res.render('callback',{token:token,accessToken:token.access_token,refreshToken:token.refresh_token,layout:false});
   }
   else if(req.query.code){
     var code = req.query.code;
@@ -56,7 +55,7 @@ app.get('/callback',function(req,res){
     sendReq(conf.host+"/oauth/token",'POST',req,function(err,token){
       if(err) res.json(err);
       cookie.save('token',token,{path:'/',maxAge:1800});
-      res.render('callback',{token:token,layout:false});
+      res.render('callback',{token:token,accessToken:token.access_token,refreshToken:token.refresh_token,layout:false});
     });
 
   }
@@ -73,12 +72,16 @@ app.get('/login',function(req,res){
 });
 
 
+app.get('/callapi',function(req,res){
+  res.render('callapi',{layout:false});
+});
+
 //user access token to call clara apis  
-app.post('/callback',function(req,res){
+app.post('/callapi',function(req,res){
   var token = cookie.load('token');
   var url = conf.host+'/api/'+req.body.api;
   var method = req.body.method;
-  req.headers.authorization = 'Bearer '+token;
+  req.headers.authorization = 'Bearer '+token.access_token;
   sendReq(url,method,req,function(err,data){
     if(err) res.json(err);
     else res.json(data);
@@ -86,32 +89,26 @@ app.post('/callback',function(req,res){
 
 });
 
+//when token expires, use refresh token to get new token
 
-//Password mode allow user to use client account on their, and apply 
-//for access token with user credential and client credential to /oauth/token
-app.get('/password_mode',function(req,res){
-  res.render('login',{layout:false});
-});
-
-app.post('/password_mode',function(req,res){
-  var url = conf.host+'/oauth/token';
-  var method = 'POST';
-  var form = {
-     username:req.body.username,
-     password:req.body.password,
-     client_id:conf.client_id,
-     client_secret:conf.client_secret,
-     redirect_uri:conf.redirect_uri,
-     grant_type:'password'
-   };
-  req.body = form;
-  sendReq(url,method,req,function(err,data){
-    if(err) console.log(err);
-    else {
-      cookie.save('token',data,{path:'/',maxAge:1800});
-      res.redirect('/callback');
-    }
-  })
+app.get('/refresh',function(req,res){
+  res.render('refresh',{layout:false});
 })
-app.listen(8080);
 
+app.post('/refresh',function(req,res){
+  var token = cookie.load('token');
+  var form= {
+      client_id:conf.client_id,
+      client_secret:conf.client_secret,
+      redirect_uri:conf.redirect_uri,
+      grant_type:'refresh_token',
+      refresh_token: token.refresh_token,
+    };
+  req.body = form;
+  sendReq(conf.host+"/oauth/token",'POST',req,function(err,newToken){
+    if(err) res.json(err);
+      cookie.save('token',newToken,{path:'/',maxAge:1800});
+      res.redirect('/callback')
+    });
+});
+app.listen(8080);

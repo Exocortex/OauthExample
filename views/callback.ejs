@@ -1,18 +1,31 @@
 
+<!doctype html>
+<html>
+<head>
+	<title>Access Token</title>
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css"> <!-- load bootstrap css -->
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css"> <!-- load fontawesome -->
+	<style>
+		body 		{ padding-top:70px; }
+	</style>
+</head>
+<body>
+<div class="container">
 
-<h2> Access Token </h2>
-
-<p> Authorized sucessfully </p>
-	
-<p> Your acess token is <%-token%> </p>
-
-
-<h4> Call api using access token
-<p> </p>
-<form method="post" action='/callback'>
-	api: <input type="text" name='api'> 
-	method: <input type="text" name='method'>
-	 body: <input type="text" name='request_body'> 
-	<input type="submit" value="submit"> 
-</form>
-
+	<div class="jumbotron text-center">
+		<h2>Access Token</h2>
+		<h4>Authorized sucessfully</h4>
+		<p> your access token is </p>
+		 <%- accessToken %> 
+		<p> your refresh token is </p>
+		 <%= refreshToken %> 
+		<form method="get" action="/callapi">
+			<input type='submit' class= 'btn btn-default' value='Call API'>
+		</form>
+		<form method="get" action="/refresh">
+		<input type='submit' class= 'btn btn-default' value='Refresh token'>
+		</form>
+	</div>
+</div>
+</body>
+</html>
