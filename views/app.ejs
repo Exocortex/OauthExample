@@ -1,0 +1,53 @@
+
+<!doctype html>
+<html>
+<head>
+  <title>Access Token</title>
+  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css"> <!-- load bootstrap css -->
+  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css"> <!-- load fontawesome -->
+  <style>
+    body    { padding-top:70px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="well">
+    <h4>Authorized sucessfully</h4>
+    <p> your access token is <code><%= token.access_token %></code>.</p>
+    <p> your refresh token is <code><%= token.refresh_token %></code>.</p>
+    <p> state <%= state %></code>.</p>
+    <form method="get" action="/callapi">
+    </form>
+    <a href="/refresh" class= 'btn btn-default'>Refresh token</a>
+    <a href="/" class="btn">Logout to Home</a>
+  </div>
+
+  <div>
+    <form method="post" action='/app'>
+      <div class="form-group">
+        <label>API:(https://clara.io/api/)</label>
+        <input type="text" class="form-control" name="api" value="<%= api %>" />
+      </div>
+      <div class="form-group">
+        <label>method</label>
+        <input type="text" class="form-control" name="method" value="<%= method %>" />
+      </div>
+        <div class="form-group">
+        <label>request body</label>
+        <input type="text" class="form-control" name="body">
+      </div>
+      <button type="submit" class="btn btn-warning btn-lg">submit</button>
+    </form>
+    <hr />
+    <% if (askRefresh) { %>
+      <p><a href="/refresh" class="btn btn-primary">Refresh token</a></p>
+    <% } %>
+    <% if (statusCode) { %>
+      <p>status: <code><%= statusCode %></code></p>
+      <pre><%= result %></pre>
+    <% } %>
+  </div>
+</div>
+</body>
+</html>

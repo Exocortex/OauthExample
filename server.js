@@ -2,92 +2,133 @@ var express = require('express')
 var conf = require('./conf');
 var request=require('request');
 var bodyParser = require('body-parser');
-var cookie = require('react-cookie');
+var querystring = require('querystring');
 var app = express();
+var session = require('express-session');
 
 app.set('view engine', 'ejs');
 
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(bodyParser.json())
+app.use(session({
+  secret: 'super super secret',
+  resave: false,
+  saveUninitialized: true,
+}));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+// simple logger
+app.use(function(req, res, next){
+  console.log('%s %s', req.method, req.url);
+  next();
+});
 
-function sendReq(url,method,req,cb){
+function sendReq(url, method, req, callback){
   request({
     uri: url,
     rejectUnauthorized: false,
     method: method,
-    headers:{
-      Authorization:req.headers.authorization,
+    headers: {
+      Authorization: req.headers.authorization,
       'Content-Type': 'application/json',
     },
-    form:req.body
-  }, 
-  function(error, response, body) {
-    if(error) cb(err);
-    else cb(null, body);
+    form: req.body
+  },
+  function(err, response, body) {
+    if (err) return callback(err);
+    if (response.statusCode !== 200) return callback(response.statusCode, body);
+    try {
+      const result = JSON.parse(body);
+      return callback(null, result);
+    } catch (e) {
+      return callback(e);
+    }
   });
 }
+
 // Oauth2.0 authorization code flow
 app.get('/',function(req,res){
-  cookie.remove('token');
-  res.render('home',{layout:false});
+  if (!req.session.views) req.session.views = 0;
+  req.session.token = null;
+  const state = process.version + '-' + Math.random();
+  res.render('home', { state: state, views: req.session.views });
 })
 
 
-//received authorization code from Clara.io, exchange authorization code for 
+//received authorization code from Clara.io, exchange authorization code for
 //access token by sending post request to /oauth/token with code
-app.get('/callback',function(req,res){
-  var token = cookie.load('token');
-  if(typeof token !== 'undefined'){
-    res.render('callback',{token:token,accessToken:token.access_token,refreshToken:token.refresh_token,layout:false});
-  }
-  else if(req.query.code){
-    var code = req.query.code;
+app.get('/callback', function(req,res){
+  if (!req.query.code) return res.json('no token found');
+  req.session.state = req.query.state;
 
-    var form= {
-      client_id:conf.client_id,
-      client_secret:conf.client_secret,
-      redirect_uri:conf.redirect_uri,
-      grant_type:'authorization_code',
-      code: code,
-    };
+  var form = {
+    client_id: conf.client_id,
+    client_secret: conf.client_secret,
+    redirect_uri: conf.redirect_uri,
+    grant_type: 'authorization_code',
+    code: req.query.code,
+  };
 
-    req.body = form;
-    sendReq(conf.host+"/oauth/token",'POST',req,function(err,token){
-      if(err) res.json(err);
-      else {
-        console.log(token);
-        cookie.save('token',token,{path:'/',maxAge:1800});
-        res.render('callback',{accessToken:token.access_token,refreshToken:token.refresh_token,layout:false});
-      }
-    });
+  req.body = form;
+  console.log('ask for token', form);
 
-  }
-  else {
-    res.json('no token found');
-  }
+  sendReq(conf.host+"/oauth/token",'POST',req,function(err, result){
+    console.log('token err?', err, result);
+    if (err) {
+      if (typeof err !== 'number') return res.sendStatus(500);
+      return res.send(err, result);
+    }
+
+    req.session.token = result;
+    return res.redirect('/app');
+  });
+});
+
+app.get('/app', function(req, res) {
+  if (!req.session.token) return res.redirect('/');
+  res.render('app', {
+    token: req.session.token,
+    state: req.session.state,
+    result: '',
+    method: 'get',
+    api: 'session',
+    statusCode: '',
+    askRefresh: false
+  });
 });
 
 
 
 //redirect to clara.io oauth/ to start Oauth2.0 flow
 app.get('/login',function(req,res){
-	res.redirect(conf.authorize_uri+'?client_id='+conf.client_id+'&redirect_uri='+conf.redirect_uri);
+  const state = req.query.state;
+  var qs = {
+    client_id: conf.client_id,
+    state: req.query.state || '',
+  }
+  res.redirect(conf.authorize_uri + '?' + querystring.stringify(qs));
 });
 
-
-app.get('/callapi',function(req,res){
-  res.render('callapi',{layout:false});
-});
-
-//user access token to call clara apis  
-app.post('/callapi',function(req,res){
-  var token = cookie.load('token');
+//user access token to call clara apis
+app.post('/app',function(req,res){
+  if (!req.session.token) return res.redirect('/');
+  var token = req.session.token;
   var url = conf.host+'/api/'+req.body.api;
   var method = req.body.method;
   req.headers.authorization = 'Bearer '+token.access_token;
   sendReq(url,method,req,function(err,data){
-    if(err) res.json(err);
-    else res.json(data);
+    if (err && typeof err !== 'number') return res.json(err);
+
+    const statusCode = err || 200;
+    console.log('401?', statusCode === 401);
+
+    res.render('app', {
+      token: req.session.token,
+      state: req.session.state,
+      result: JSON.stringify(data, null, '  '),
+      method: method,
+      api: req.body.api,
+      statusCode: statusCode,
+      askRefresh: statusCode === 401,
+    });
   });
 
 });
@@ -95,23 +136,23 @@ app.post('/callapi',function(req,res){
 //when token expires, use refresh token to get new token
 
 app.get('/refresh',function(req,res){
-  res.render('refresh',{layout:false});
-})
-
-app.post('/refresh',function(req,res){
-  var token = cookie.load('token');
-  var form= {
-      client_id:conf.client_id,
-      client_secret:conf.client_secret,
-      redirect_uri:conf.redirect_uri,
-      grant_type:'refresh_token',
-      refresh_token: token.refresh_token,
-    };
+  if (!req.session.token) return res.redirect('/');
+  var token = req.session.token;
+  var form = {
+    client_id: conf.client_id,
+    client_secret: conf.client_secret,
+    // redirect_uri:conf.redirect_uri,
+    grant_type: 'refresh_token',
+    refresh_token: token.refresh_token,
+  };
   req.body = form;
-  sendReq(conf.host+"/oauth/token",'POST',req,function(err,newToken){
-    if(err) res.json(err);
-      cookie.save('token',newToken,{path:'/',maxAge:1800});
-      res.redirect('/callback')
-    });
+  sendReq(conf.host+"/oauth/token",'POST', req, function(err,result){
+    if(err && typeof err !== 'number') return res.json(err);
+    if (err) return res.send(result);
+    req.session.token = result;
+    res.redirect('/app');
+  });
 });
+
 app.listen(8080);
+console.log('listening on: http://localhost:8080');
