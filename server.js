@@ -5,7 +5,8 @@ var bodyParser = require('body-parser');
 var querystring = require('querystring');
 var app = express();
 var session = require('express-session');
-
+var passport = require('passport')
+var OAuth2Strategy = require('passport-oauth2').Strategy;
 app.set('view engine', 'ejs');
 
 app.use(session({
@@ -20,6 +21,19 @@ app.use(function(req, res, next){
   console.log('%s %s', req.method, req.url);
   next();
 });
+
+passport.use(new OAuth2Strategy({
+    authorizationURL: conf.authorize_uri,
+    tokenURL: conf.token_uri,
+    clientID: conf.client_id,
+    clientSecret: conf.client_secret,
+    callbackURL: conf.redirect_uri,
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(accessToken);
+  }
+));
+
 
 function sendReq(url, method, req, callback){
   request({
@@ -44,6 +58,8 @@ function sendReq(url, method, req, callback){
   });
 }
 
+app.get('/test',passport.authenticate('oauth2',{state:'12312'}));
+
 // Oauth2.0 authorization code flow
 app.get('/',function(req,res){
   if (!req.session.views) req.session.views = 0;
@@ -55,7 +71,13 @@ app.get('/',function(req,res){
 
 //received authorization code from Clara.io, exchange authorization code for
 //access token by sending post request to /oauth/token with code
-app.get('/callback', function(req,res){
+app.get('/callback',
+  passport.authenticate('oauth2', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/app');
+  });
+  /*
   if (!req.query.code) return res.json('no token found');
   req.session.state = req.query.state;
 
@@ -80,7 +102,7 @@ app.get('/callback', function(req,res){
     req.session.token = result;
     return res.redirect('/app');
   });
-});
+});*/
 
 app.get('/app', function(req, res) {
   if (!req.session.token) return res.redirect('/');
@@ -98,14 +120,14 @@ app.get('/app', function(req, res) {
 
 
 //redirect to clara.io oauth/ to start Oauth2.0 flow
-app.get('/login',function(req,res){
-  const state = req.query.state;
-  var qs = {
+app.get('/login',passport.authenticate('oauth2',{state:'1231'}));
+ /* var qs = {
     client_id: conf.client_id,
+    redirect_uri:conf.redirect_uri,
     state: req.query.state || '',
   }
   res.redirect(conf.authorize_uri + '?' + querystring.stringify(qs));
-});
+});*/
 
 //user access token to call clara apis
 app.post('/app',function(req,res){
