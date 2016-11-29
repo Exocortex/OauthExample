@@ -1,19 +1,33 @@
 var express = require('express')
 var conf = require('./conf');
-var request=require('request');
 var bodyParser = require('body-parser');
 var querystring = require('querystring');
-var app = express();
+var api = require('./api');
 var session = require('express-session');
 var passport = require('passport')
 var OAuth2Strategy = require('passport-oauth2').Strategy;
+var app = express();
+
+var claraStrategy = new OAuth2Strategy({
+  clientID: conf.client_id,
+  clientSecret: conf.client_secret,
+  authorizationURL: conf.authorize_uri,
+  tokenURL: conf.token_uri,
+  callbackURL: conf.redirect_uri,
+},api.oauthSucess);
+
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; 
+
 app.set('view engine', 'ejs');
+
+passport.use(claraStrategy);
 
 app.use(session({
   secret: 'super super secret',
   resave: false,
   saveUninitialized: true,
 }));
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 // simple logger
@@ -22,43 +36,16 @@ app.use(function(req, res, next){
   next();
 });
 
-passport.use(new OAuth2Strategy({
-    authorizationURL: conf.authorize_uri,
-    tokenURL: conf.token_uri,
-    clientID: conf.client_id,
-    clientSecret: conf.client_secret,
-    callbackURL: conf.redirect_uri,
-  },
-  function(accessToken, refreshToken, profile, cb) {
-    console.log(accessToken);
-  }
-));
+//use passport to store token granted from clara
+app.use(passport.initialize());
+app.use(passport.session());
+passport.deserializeUser(function(obj, done) {
+  done(null, obj);
+});
 
-
-function sendReq(url, method, req, callback){
-  request({
-    uri: url,
-    rejectUnauthorized: false,
-    method: method,
-    headers: {
-      Authorization: req.headers.authorization,
-      'Content-Type': 'application/json',
-    },
-    form: req.body
-  },
-  function(err, response, body) {
-    if (err) return callback(err);
-    if (response.statusCode !== 200) return callback(response.statusCode, body);
-    try {
-      const result = JSON.parse(body);
-      return callback(null, result);
-    } catch (e) {
-      return callback(e);
-    }
-  });
-}
-
-app.get('/test',passport.authenticate('oauth2',{state:'12312'}));
+passport.serializeUser(function(token, done) {
+  done(null, token);
+});
 
 // Oauth2.0 authorization code flow
 app.get('/',function(req,res){
@@ -69,45 +56,28 @@ app.get('/',function(req,res){
 })
 
 
+//redirect to clara.io oauth/ to start Oauth2.0 flow
+app.get('/login',function(req,res,next){
+  if(req.user) return res.redirect('/app');
+  else next();
+}, 
+passport.authenticate('oauth2',{state:process.version + '-' + Math.random()})
+);
+
 //received authorization code from Clara.io, exchange authorization code for
 //access token by sending post request to /oauth/token with code
-app.get('/callback',
-  passport.authenticate('oauth2', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
+app.get('/callback', passport.authenticate('oauth2', { failureRedirect: '/' }),
+  function(req,res){
+    req.session.state = req.query.state;
     res.redirect('/app');
   });
-  /*
-  if (!req.query.code) return res.json('no token found');
-  req.session.state = req.query.state;
 
-  var form = {
-    client_id: conf.client_id,
-    client_secret: conf.client_secret,
-    redirect_uri: conf.redirect_uri,
-    grant_type: 'authorization_code',
-    code: req.query.code,
-  };
-
-  req.body = form;
-  console.log('ask for token', form);
-
-  sendReq(conf.host+"/oauth/token",'POST',req,function(err, result){
-    console.log('token err?', err, result);
-    if (err) {
-      if (typeof err !== 'number') return res.sendStatus(500);
-      return res.send(err, result);
-    }
-
-    req.session.token = result;
-    return res.redirect('/app');
-  });
-});*/
 
 app.get('/app', function(req, res) {
-  if (!req.session.token) return res.redirect('/');
+  if (!req.user) return res.redirect('/');
+  var token = req.user;
   res.render('app', {
-    token: req.session.token,
+    token: token,
     state: req.session.state,
     result: '',
     method: 'get',
@@ -117,33 +87,21 @@ app.get('/app', function(req, res) {
   });
 });
 
-
-
-//redirect to clara.io oauth/ to start Oauth2.0 flow
-app.get('/login',passport.authenticate('oauth2',{state:'1231'}));
- /* var qs = {
-    client_id: conf.client_id,
-    redirect_uri:conf.redirect_uri,
-    state: req.query.state || '',
-  }
-  res.redirect(conf.authorize_uri + '?' + querystring.stringify(qs));
-});*/
-
 //user access token to call clara apis
 app.post('/app',function(req,res){
-  if (!req.session.token) return res.redirect('/');
-  var token = req.session.token;
+  if (!req.user) return res.redirect('/');
+  var token = req.user;
   var url = conf.host+'/api/'+req.body.api;
   var method = req.body.method;
-  req.headers.authorization = 'Bearer '+token.access_token;
-  sendReq(url,method,req,function(err,data){
+  req.headers.authorization = 'Bearer '+token.accessToken;
+  api.sendReq(url,method,req,function(err,data){
     if (err && typeof err !== 'number') return res.json(err);
 
     const statusCode = err || 200;
     console.log('401?', statusCode === 401);
 
     res.render('app', {
-      token: req.session.token,
+      token: req.user,
       state: req.session.state,
       result: JSON.stringify(data, null, '  '),
       method: method,
@@ -158,21 +116,25 @@ app.post('/app',function(req,res){
 //when token expires, use refresh token to get new token
 
 app.get('/refresh',function(req,res){
-  if (!req.session.token) return res.redirect('/');
-  var token = req.session.token;
+  if (!req.user) return res.redirect('/');
+  var token = req.user;
   var form = {
     client_id: conf.client_id,
     client_secret: conf.client_secret,
-    // redirect_uri:conf.redirect_uri,
+    redirect_uri:conf.redirect_uri,
     grant_type: 'refresh_token',
-    refresh_token: token.refresh_token,
+    refresh_token: token.refreshToken,
   };
   req.body = form;
-  sendReq(conf.host+"/oauth/token",'POST', req, function(err,result){
+  api.sendReq(conf.host+"/oauth/token",'POST', req, function(err,result){
     if(err && typeof err !== 'number') return res.json(err);
     if (err) return res.send(result);
-    req.session.token = result;
-    res.redirect('/app');
+    result.accessToken = result.access_token;
+    result.refreshToken = result.refresh_token;
+    req.login(result,function(err){
+      if(err) res.send(err);
+      res.redirect('/app');
+    })
   });
 });
 
