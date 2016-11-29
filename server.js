@@ -9,11 +9,11 @@ var OAuth2Strategy = require('passport-oauth2').Strategy;
 var app = express();
 
 var claraStrategy = new OAuth2Strategy({
-  clientID: conf.client_id,
-  clientSecret: conf.client_secret,
-  authorizationURL: conf.host+'/oauth/authorize',
-  tokenURL: conf.host+'/oauth/token',
-  callbackURL: conf.redirect_uri,
+  clientID: conf.get('client_id'),
+  clientSecret: conf.get('client_secret'),
+  authorizationURL: conf.get('host')+'/oauth/authorize',
+  tokenURL: conf.get('host')+'/oauth/token',
+  callbackURL: conf.get('redirect_uri'),
 },api.oauthSucess);
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -100,7 +100,7 @@ app.get('/app', function(req, res) {
 app.post('/app',function(req,res){
   if (!req.user) return res.redirect('/');
   var token = req.user;
-  var url = conf.host+'/api/'+req.body.api;
+  var url = conf.get('host')+'/api/'+req.body.api;
   var method = req.body.method;
   api.callApi(token,url,method,function(err,result,newToken){
     if(err) return res.json(err);

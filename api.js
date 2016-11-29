@@ -26,9 +26,9 @@ var sendReq = function sendReq(url, method, req, callback){
 
 var refreshToken = function(token,callback){
   var form = {
-    client_id: conf.client_id,
-    client_secret: conf.client_secret,
-    redirect_uri:conf.redirect_uri,
+    client_id: conf.get('client_id'),
+    client_secret: conf.get('client_secret'),
+    redirect_uri:conf.get('redirect_uri'),
     grant_type: 'refresh_token',
     refresh_token: token.refresh_token,
   };
@@ -38,7 +38,7 @@ var refreshToken = function(token,callback){
     authorization:'Basic',
     'Content-Type': 'application/json',
   };
-  sendReq(conf.host+"/oauth/token",'POST', req, function(err,result){
+  sendReq(conf.get('host')+"/oauth/token",'POST', req, function(err,result){
     if(err && typeof err !== 'number') return callback(err);
     if(err) return callback(err);
     callback(null,result);
