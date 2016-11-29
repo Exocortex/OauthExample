@@ -22,7 +22,7 @@ The demo use [passport-oauth2](https://github.com/jaredhanson/passport-oauth2) t
 Change your client information in `conf.js`
 
 ```js
-host:'https://clara.io/',
+host:'https://clara.io',
 client_id:'YOUR_CLIENT_ID',
 client_secret: 'YOUR_CLIENT_SECRET',
 redirect_uri:'http://localohost:8080/callback',
@@ -31,17 +31,18 @@ redirect_uri:'http://localohost:8080/callback',
 
 
 ```js
+
 var passport = require('passport')
 var OAuth2Strategy = require('passport-oauth2').Strategy;
 
 var claraStrategy = new OAuth2Strategy({
 	clientID: conf.client_id,
 	clientSecret: conf.client_secret,
-	authorizationURL: conf.authorize_uri,
-	tokenURL: conf.token_uri,
-	callbackURL: conf.redirect_uri,
+	authorizationURL: conf.host+'/oauth/authorize',
+	tokenURL: conf.host+'/oauth/token'
+	callbackURL: 'http://localohost:8080/callback'
 },function oauthSucess(accessToken, refreshToken, profile, cb){
-	//after authorize sucess
+	//called after authorize sucess
 }
 
 passport.use(claraStrategy);
@@ -54,4 +55,4 @@ authenticate requests.
 
 #### Error message
 Error messages are returned in request query `'err'`when client fails to apply for authorization code.
-Error messages are returned through response when authenticattion and apply for token.
+Error messages are returned through response when authenticattion or apply for token fails.
