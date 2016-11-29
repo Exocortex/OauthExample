@@ -57,11 +57,14 @@ app.get('/',function(req,res){
 
 
 //redirect to clara.io oauth/ to start Oauth2.0 flow
-app.get('/login',function(req,res,next){
-  if(req.user) return res.redirect('/app');
-  else next();
-},
-passport.authenticate('oauth2',{state:process.version + '-' + Math.random()})
+app.get('/login',
+  function(req,res,next){
+    if(req.user) return res.redirect('/app');
+    next();
+  },
+  function(req,res){
+    passport.authenticate('oauth2',{state:req.query.state})(req,res);
+  }
 );
 
 //received authorization code from Clara.io, exchange authorization code for
