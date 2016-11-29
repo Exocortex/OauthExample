@@ -102,46 +102,32 @@ app.post('/app',function(req,res){
   var token = req.user;
   var url = conf.host+'/api/'+req.body.api;
   var method = req.body.method;
-  req.headers.authorization = 'Bearer '+token.access_token;
-  api.sendReq(url,method,req,function(err,data){
-    if (err && typeof err !== 'number') return res.json(err);
-
-    const statusCode = err || 200;
-    console.log('401?', statusCode === 401);
-
-    res.render('app', {
-      token: req.user,
-      state: req.session.state,
-      result: JSON.stringify(data, null, '  '),
-      method: method,
-      api: req.body.api,
-      statusCode: statusCode,
-      askRefresh: statusCode === 401,
-    });
-  });
-
-});
-
-//when token expires, use refresh token to get new token
-
-app.get('/refresh',function(req,res){
-  if (!req.user) return res.redirect('/');
-  var token = req.user;
-  var form = {
-    client_id: conf.client_id,
-    client_secret: conf.client_secret,
-    redirect_uri:conf.redirect_uri,
-    grant_type: 'refresh_token',
-    refresh_token: token.refresh_token,
-  };
-  req.body = form;
-  api.sendReq(conf.host+"/oauth/token",'POST', req, function(err,result){
-    if(err && typeof err !== 'number') return res.json(err);
-    if (err) return res.send(result);
-    req.login(result,function(err){
-      if(err) res.send(err);
-      res.redirect('/app');
-    })
+  api.callApi(token,url,method,function(err,result,newToken){
+    if(err) return res.json(err);
+    const statusCode = 200;
+    if(newToken){
+      req.login(newToken,function(err){
+        if(err) return res.json(err);
+        res.render('app', {
+          token: req.user,
+          state: req.session.state,
+          result: JSON.stringify(result, null, '  '),
+          method: method,
+          api: req.body.api,
+          statusCode: statusCode,
+        });
+      });
+    }
+    else {
+      res.render('app', {
+        token: req.user,
+        state: req.session.state,
+        result: JSON.stringify(result, null, '  '),
+        method: method,
+        api: req.body.api,
+        statusCode: statusCode,
+      });
+    }
   });
 });
 

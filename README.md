@@ -12,7 +12,7 @@ The demo provides Oauth2.0 for Clara.io by Authorization code flow
 
 ##Refresh Token flow
  - Use refresh token to get new acess token when the old one expires.
- - Demo at  http://localhost:8080/refresh
+ - Refresh token function is called when failed to authenticate the access token from Clara.
 
 ## Usage
 

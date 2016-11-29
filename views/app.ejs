@@ -19,7 +19,6 @@
     <p> state <%= state %></code>.</p>
     <form method="get" action="/callapi">
     </form>
-    <a href="/refresh" class= 'btn btn-default'>Refresh token</a>
     <a href="/" class="btn">Logout to Home</a>
   </div>
 
@@ -40,9 +39,6 @@
       <button type="submit" class="btn btn-warning btn-lg">submit</button>
     </form>
     <hr />
-    <% if (askRefresh) { %>
-      <p><a href="/refresh" class="btn btn-primary">Refresh token</a></p>
-    <% } %>
     <% if (statusCode) { %>
       <p>status: <code><%= statusCode %></code></p>
       <pre><%= result %></pre>
