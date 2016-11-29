@@ -137,5 +137,5 @@ app.post('/app',function(req,res){
   });
 });
 
-app.listen(8080);
+app.listen(conf.get('port'));
 console.log('listening on: http://localhost:8080');
