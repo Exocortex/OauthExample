@@ -11,12 +11,12 @@ var app = express();
 var claraStrategy = new OAuth2Strategy({
   clientID: conf.client_id,
   clientSecret: conf.client_secret,
-  authorizationURL: conf.authorize_uri,
-  tokenURL: conf.token_uri,
+  authorizationURL: conf.host+'/oauth/authorize',
+  tokenURL: conf.host+'/oauth/token',
   callbackURL: conf.redirect_uri,
 },api.oauthSucess);
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 app.set('view engine', 'ejs');
 
@@ -60,17 +60,23 @@ app.get('/',function(req,res){
 app.get('/login',function(req,res,next){
   if(req.user) return res.redirect('/app');
   else next();
-}, 
+},
 passport.authenticate('oauth2',{state:process.version + '-' + Math.random()})
 );
 
 //received authorization code from Clara.io, exchange authorization code for
 //access token by sending post request to /oauth/token with code
-app.get('/callback', passport.authenticate('oauth2', { failureRedirect: '/' }),
+app.get('/callback',
+  function(req,res){
+    if(req.query.err) return res.json(req.query.err);
+    else next();
+  },
+  passport.authenticate('oauth2', { failureRedirect: '/' }),
   function(req,res){
     req.session.state = req.query.state;
     res.redirect('/app');
-  });
+  }
+);
 
 
 app.get('/app', function(req, res) {
@@ -93,7 +99,7 @@ app.post('/app',function(req,res){
   var token = req.user;
   var url = conf.host+'/api/'+req.body.api;
   var method = req.body.method;
-  req.headers.authorization = 'Bearer '+token.accessToken;
+  req.headers.authorization = 'Bearer '+token.access_token;
   api.sendReq(url,method,req,function(err,data){
     if (err && typeof err !== 'number') return res.json(err);
 
@@ -123,14 +129,12 @@ app.get('/refresh',function(req,res){
     client_secret: conf.client_secret,
     redirect_uri:conf.redirect_uri,
     grant_type: 'refresh_token',
-    refresh_token: token.refreshToken,
+    refresh_token: token.refresh_token,
   };
   req.body = form;
   api.sendReq(conf.host+"/oauth/token",'POST', req, function(err,result){
     if(err && typeof err !== 'number') return res.json(err);
     if (err) return res.send(result);
-    result.accessToken = result.access_token;
-    result.refreshToken = result.refresh_token;
     req.login(result,function(err){
       if(err) res.send(err);
       res.redirect('/app');

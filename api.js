@@ -3,8 +3,8 @@ var request=require('request');
 
 exports.oauthSucess = function oauthSucess(accessToken, refreshToken, profile, cb) {
   var token = {};
-  token.accessToken = accessToken;
-  token.refreshToken = refreshToken;
+  token.access_token = accessToken;
+  token.refresh_token = refreshToken;
   cb(null,token);
 }
 

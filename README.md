@@ -42,7 +42,9 @@ var claraStrategy = new OAuth2Strategy({
 	authorizationURL: conf.authorize_uri,
 	tokenURL: conf.token_uri,
 	callbackURL: conf.redirect_uri,
-},api.oauthSucess);
+},function oauthSucess(accessToken, refreshToken, profile, cb){
+	//after authorize sucess
+}
 
 passport.use(claraStrategy);
 
@@ -51,3 +53,7 @@ passport.use(claraStrategy);
 
 Use `passport.authenticate()`, specifying the `'oauth2'` strategy, to
 authenticate requests.
+
+#### Error message
+Error messages are returned in request query `'err'`when client fails to apply for authorization code.
+Error messages are returned through response when authenticattion and apply for token.
