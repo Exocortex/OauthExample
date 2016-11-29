@@ -1,58 +1,53 @@
-#Clara Oauth2.0 client demo
+# Clara Oauth2.0 client demo
 
-The demo provides Oauth2.0 for Clara.io by Authorization code flow
+This node.js app demonstrates using Clara.io for authorization using [oauth2](https://oauth.net/2/).
 
+See [OAuth2 Simplified](https://aaronparecki.com/2012/07/29/2/oauth2-simplified) for a quick introduction.
 
-##Authorization code flow
- - Start at http://localhost:8080
- - Redirect user to clara.io /login
- - Verify user credential
- - Grant authorization code
- - Exchange authorization code for token
+## Get started
 
-##Refresh Token flow
- - Use refresh token to get new acess token when the old one expires.
- - Refresh token function is called when failed to authenticate the access token from Clara.
+	* Obtain an OAuth credentials (contact Clara.io support)
+	* Run `yarn install`, or `npm install`
+	* Run `client_id={YOUR_CLIENT_ID} client_secret={YOUR_CLIENT_SECRET} redirect_uri={REDIRECT_URI} node ./server.js`
+	* You should then be able to load up the app, and log in with clara.io
 
-## Usage
+The demo uses [passport-oauth2](https://github.com/jaredhanson/passport-oauth2) to control the
+oauth2 flow.
 
-The demo use [passport-oauth2](https://github.com/jaredhanson/passport-oauth2) to generate strategy for Oauth2.0
+## Implementation Notes
 
-#### Change config file conf.js
-Change your client information in `conf.js`
+* The only implemented OAuth2 flow is "authorization code" for server based apps.
+* The Authorization endpoint to begin authorization is https://clara.io/oauth/authorize with required parameters:
 
-```js
-host:'https://clara.io',
-client_id:'YOUR_CLIENT_ID',
-client_secret: 'YOUR_CLIENT_SECRET',
-redirect_uri:'http://localohost:8080/callback',
-```
-#### Use oauth2 strategy
+	* `client_id` MUST match the one provided with your Application credentials
+	* `response_type` MUST be equal to 'code'
+	* `redirect_uri` MUST be provided, and must equal the one provided with your application credentials
 
+* The Request token endpoint is https://clara.io/oauth/token -- to obtain an access token, POST with:
 
-```js
+	* `client_id` MUST match the one provided with your Application credentials
+	* `client_secret` MUST match the one provided with your Application credentials
+  * `grant_type` MUST be equal to 'authorization_code' (or `refresh_token`)
+	* `redirect_uri` MUST be equal to the on provided with your application credentials
+	* `code` Required for initial access token, MUST be equal to the code provided from the `authorize` request
+	* `refresh_token` Required to renew the access token, MUST equal the refresh token provided in previous token request
 
-var passport = require('passport')
-var OAuth2Strategy = require('passport-oauth2').Strategy;
+* The `access_token` is not a long lasting token, so be sure to use the `refresh_token` to request new
+tokens should the original request return a 401 status.
 
-var claraStrategy = new OAuth2Strategy({
-	clientID: conf.client_id,
-	clientSecret: conf.client_secret,
-	authorizationURL: conf.host+'/oauth/authorize',
-	tokenURL: conf.host+'/oauth/token'
-	callbackURL: 'http://localohost:8080/callback'
-},function oauthSucess(accessToken, refreshToken, profile, cb){
-	//called after authorize sucess
-}
+* If a `state` query parameter is provided to the `/oauth/authorize` endpoint, it will be returned
+  in the `code` callback. This provides the ability to store state attached to the user before authentication,
+	in order to respond properly after authentication.
 
-passport.use(claraStrategy);
+## Errors
 
-```
-#### Authenticate Requests
+Errors will be returned with the `error` code, and `error_description` property. If there is a problem
+with the initial authorize code request, the `redirect_uri` will be called with the `error` and
+`error_description` in the query string. If there is a problem with getting an access token, the
+`error` and `error_description` will be returned in the JSON body.
 
-Use `passport.authenticate()`, specifying the `'oauth2'` strategy, to
-authenticate requests.
+Potential `error` codes are:
 
-#### Error message
-Error messages are returned in request query `'err'`when client fails to apply for authorization code.
-Error messages are returned through response when authenticattion or apply for token fails.
+  * `invalid_request` - Likely due to missing parameters. Have you attached the required parameters listed above?
+	* `invalid_client` - For errors in the oauth client values (`client_id`, `client_secret` or `redirect_uri`).
+	* `server_error` - An unexpected error from the oauth server. Please contact support if the error persists.
