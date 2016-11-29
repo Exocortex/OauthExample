@@ -67,7 +67,7 @@ passport.authenticate('oauth2',{state:process.version + '-' + Math.random()})
 //received authorization code from Clara.io, exchange authorization code for
 //access token by sending post request to /oauth/token with code
 app.get('/callback',
-  function(req,res){
+  function(req,res,next){
     if(req.query.err) return res.json(req.query.err);
     else next();
   },
