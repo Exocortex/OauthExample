@@ -2,7 +2,7 @@
 <!doctype html>
 <html>
 <head>
-  <title>Access Token</title>
+  <title>App</title>
   <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css"> <!-- load bootstrap css -->
   <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css"> <!-- load fontawesome -->
   <style>
@@ -14,18 +14,17 @@
 
   <div class="well">
     <h4>Authorized sucessfully</h4>
-    <p> your access token is <code><%= token.access_token %></code>.</p>
-    <p> your refresh token is <code><%= token.refresh_token %></code>.</p>
-    <p> state <%= state %></code>.</p>
+    <p>Our state is version: <code><%= state.version %></code>, number: <%= state.num %></p>
+    <p>Logged in with <code><%= user.username %></code></p>
     <form method="get" action="/callapi">
     </form>
-    <a href="/" class="btn">Logout to Home</a>
+    <a href="/logout" class="btn btn-default">Logout</a>
   </div>
 
   <div>
     <form method="post" action='/app'>
       <div class="form-group">
-        <label>API:(https://clara.io/api/)</label>
+        <label>API: (<%= host %>/api/)</label>
         <input type="text" class="form-control" name="api" value="<%= api %>" />
       </div>
       <div class="form-group">
